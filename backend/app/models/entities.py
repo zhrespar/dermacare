@@ -57,6 +57,7 @@ class SkinProfile(TimestampMixin, Base):
     goals: Mapped[list | None] = mapped_column(JSON)
     current_routine: Mapped[dict | None] = mapped_column(JSON)
     past_reactions: Mapped[str | None] = mapped_column(Text)
+    past_reaction_ingredients: Mapped[list | None] = mapped_column(JSON)  # INCI; hard-excluded
     budget_max: Mapped[float | None] = mapped_column(Numeric(10, 2))
     currency: Mapped[str | None] = mapped_column(String(3))
     preferences: Mapped[dict | None] = mapped_column(JSON)

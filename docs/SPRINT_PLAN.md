@@ -41,4 +41,8 @@ evaluation metrics on toy data, transfer-learning configs, RAG pipeline (chunkin
 citations), provider-independent LLM layer (Anthropic / OpenAI / Gemini) with guard and metrics, AM/PM routine builder,
 `/api/v1/explanations`, Dart API models.
 
+Also done (backend-core PR): register/login (argon2 + JWT, consent), profile GET/PUT, stored analyses + history,
+`POST /api/v1/recommendations` from stored profile/analysis + current catalog version, `DELETE /api/v1/me`, catalog CSV
+importer with validation (`python -m app.cli.import_catalog`), LLM call-metric logging.
+
 Out of scope for these 14 days: training final models, A/B/C expert study, any production deployment, paid APIs.

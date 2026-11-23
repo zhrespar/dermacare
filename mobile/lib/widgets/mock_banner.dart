@@ -6,12 +6,12 @@ class MockBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Card(
-      color: scheme.tertiaryContainer,
+      key: const Key('mock-banner'),
+      color: Theme.of(context).colorScheme.tertiaryContainer,
       child: const Padding(
         padding: EdgeInsets.all(12),
-        child: Text('MOCK DATA — placeholder models, not a real analysis.'),
+        child: Text('DENEME VERİSİ — Yer tutucu modeller kullanılıyor; bu gerçek bir analiz değildir.'),
       ),
     );
   }
