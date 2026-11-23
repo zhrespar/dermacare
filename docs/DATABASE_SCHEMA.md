@@ -1,6 +1,6 @@
 # Database Schema
 
-PostgreSQL 16 · SQLAlchemy 2 models in `backend/app/models/entities.py` · migrations `0001_initial_schema.py`, `0002_rag_knowledge_llm_logs.py` (`database/migrations/versions/`). Requires the **pgvector** extension (`pgvector/pgvector:pg16` image).
+PostgreSQL 16 · SQLAlchemy 2 models in `backend/app/models/entities.py` · migrations `0001_initial_schema.py`, `0002_rag_knowledge_llm_logs.py`, `0003_profile_past_reaction_ingredients.py` (`database/migrations/versions/`). Requires the **pgvector** extension (`pgvector/pgvector:pg16` image).
 
 ```mermaid
 erDiagram
@@ -42,7 +42,8 @@ erDiagram
 | allergies, avoid_ingredients | json | INCI names |
 | goals | json | acne_care, wrinkle_care, under_eye_care, hydration, sun_protection |
 | current_routine | json | |
-| past_reactions | text | |
+| past_reactions | text | free text |
+| past_reaction_ingredients | json | INCI linked to past adverse reactions; hard-excluded |
 | budget_max, currency | numeric(10,2), char(3) | |
 | preferences | json | categories, texture, etc. |
 

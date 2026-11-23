@@ -15,3 +15,8 @@ CosIng. Only `verification_status = verified` products enter the recommendation 
 
 `discovery_url` (e.g. Open Beauty Facts) records where a candidate was found; `source_url` must be the
 authoritative source (manufacturer page or package) used to verify the INCI list.
+
+Import: `python -m app.cli.import_catalog verified.csv --version 2026.12-v1 [--freeze]` (from `backend/`).
+List columns (`inci_full`, `key_ingredients`, `targets`, `suitable_skin_types`, `warnings`) use `;` as separator,
+INCI in label order. Dates ISO (`2026-12-01`). `available` = `true` / `false` / empty. Rows that are not `verified` or miss
+required fields are rejected with reasons.

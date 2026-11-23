@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api.routes import analysis, explanations, health, recommendations, system
+from app.api.routes import account, analysis, explanations, health, recommendations, system
 from app.core.config import get_settings
 
 
@@ -16,6 +16,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router)
+    app.include_router(account.router, prefix=s.api_v1_prefix)
     app.include_router(analysis.router, prefix=s.api_v1_prefix)
     app.include_router(recommendations.router, prefix=s.api_v1_prefix)
     app.include_router(explanations.router, prefix=s.api_v1_prefix)
