@@ -14,7 +14,7 @@ routine from a verified product catalog.
 | Path | Contents |
 |---|---|
 | `mobile/` | Flutter app (Android/iOS): navigation + placeholder screens for the full journey |
-| `backend/` | FastAPI app: `/health`, mock analysis, recommendation engine, config, DB session, tests |
+| `backend/` | FastAPI: `/health`, analysis (mock CV + triage), rule-based recommendation + routines, RAG, LLM explanations, tests |
 | `ml/` | `preprocessing/`, `training/`, `inference/` (task interfaces + labelled mocks), `evaluation/`, `notebooks/` |
 | `database/` | Alembic `migrations/`, `seed/` templates |
 | `docs/` | PRD, architecture, DB schema, OpenAPI spec, ML methodology, deployment, security, sprint plan, workflow |
@@ -30,7 +30,18 @@ curl localhost:8000/health
 
 Without Docker: see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Mobile: see [mobile/README.md](mobile/README.md).
 
+## How the AI parts work
+
+| Part | Approach |
+|---|---|
+| Acne, wrinkles, under-eye bags | **Trained by us** via transfer learning from pretrained CV models |
+| Landmarks, embeddings | **Pretrained**, used as-is |
+| Quality check, triage, recommendations | **Rule-based**, deterministic and auditable |
+| Explanations | **Ready-made LLM APIs** (Anthropic / OpenAI / Gemini), grounded by RAG over verified sources; disabled by default |
+
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Status
 
-Initial infrastructure. Analysis uses **mock models** (`is_mock: true`, `model_version: mock-0`). No trained models,
-no verified product catalog yet.
+Prototype infrastructure. Analysis uses **mock models** (`is_mock: true`, `model_version: mock-0`). No trained models,
+no verified product catalog, no knowledge-base sources and no LLM provider configured yet.

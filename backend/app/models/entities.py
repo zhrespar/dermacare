@@ -115,15 +115,23 @@ class Product(TimestampMixin, Base):
     catalog_version_id: Mapped[int] = mapped_column(ForeignKey("catalog_versions.id"))
     barcode: Mapped[str | None] = mapped_column(String(32), index=True)
     brand: Mapped[str] = mapped_column(String(128))
+    manufacturer: Mapped[str | None] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255))
     category: Mapped[str] = mapped_column(String(32))  # cleanser|serum|moisturizer|sunscreen|eye
     routine_slot: Mapped[str] = mapped_column(String(8))  # am|pm|both
     intended_use: Mapped[str | None] = mapped_column(Text)
+    usage_instructions: Mapped[str | None] = mapped_column(Text)  # manufacturer's directions
+    targets: Mapped[list | None] = mapped_column(JSON)  # needs, assigned by expert-reviewed rules
+    suitable_skin_types: Mapped[list | None] = mapped_column(JSON)
     warnings: Mapped[list | None] = mapped_column(JSON)
     price: Mapped[float | None] = mapped_column(Numeric(10, 2))
     currency: Mapped[str | None] = mapped_column(String(3))
+    price_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    available: Mapped[bool | None] = mapped_column(Boolean)
+    availability_note: Mapped[str | None] = mapped_column(String(255))  # e.g. market/retailer
+    discovery_url: Mapped[str | None] = mapped_column(String(1024))  # e.g. Open Beauty Facts (discovery only)
     source_url: Mapped[str] = mapped_column(String(1024))
-    source_type: Mapped[str] = mapped_column(String(32))  # manufacturer|open_beauty_facts|package
+    source_type: Mapped[str] = mapped_column(String(32))  # manufacturer|package (verification source)
     accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verification_status: Mapped[str] = mapped_column(String(16))  # pending|verified|rejected

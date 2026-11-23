@@ -131,6 +131,28 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RecommendationResponse" } } } }
 
+  /api/v1/explanations:
+    post:
+      x-status: implemented (rule_template until verified sources are ingested and an LLM provider is configured)
+      summary: Explain an already-validated recommendation with retrieved, cited sources
+      description: |
+        The recommendation is sent back unchanged. The LLM (if configured) may only explain the listed products using
+        retrieved verified sources; outputs failing the guard fall back to the rule-based template. Citations always map
+        to stored knowledge documents.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ExplanationRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Explanation" } } } }
+        "422": { description: Validation error }
+
+  /api/v1/system/components:
+    get:
+      x-status: implemented
+      summary: Which AI components are trained, pretrained, rule-based or external APIs, and the active configuration
+      responses:
+        "200": { description: OK }
+
   /api/v1/me:
     delete:
       x-status: planned
@@ -165,6 +187,7 @@ components:
         sensitivity: { type: [string, "null"], enum: [none, mild, high, null] }
         allergies: { type: [array, "null"], items: { type: string }, description: INCI names }
         avoid_ingredients: { type: array, items: { type: string } }
+        past_reaction_ingredients: { type: array, items: { type: string }, description: INCI linked to past adverse reactions (hard-excluded) }
         goals: { type: array, items: { $ref: "#/components/schemas/Need" } }
         budget_max: { type: [number, "null"], minimum: 0 }
         preferred_categories: { type: array, items: { type: string } }
@@ -180,6 +203,7 @@ components:
         x_max: { type: number }
         y_max: { type: number }
         confidence: { type: number }
+        region: { type: [string, "null"], enum: [forehead, left_cheek, right_cheek, nose, chin, left_under_eye, right_under_eye, null] }
     Analysis:
       type: object
       required: [id, is_mock, quality, triage, model_versions, disclaimer]
@@ -215,7 +239,11 @@ components:
             present: { type: boolean }
             probability: { type: number }
             gradcam_url: { type: [string, "null"] }
+        regions:
+          type: array
+          items: { type: object, properties: { region: { type: string }, lesion_count: { type: integer } } }
         model_versions: { type: object, additionalProperties: { type: string } }
+        thresholds_version: { type: [string, "null"] }
         disclaimer: { type: string }
     RecommendationRequest:
       type: object
@@ -228,6 +256,11 @@ components:
             acne_severity: { type: [string, "null"], enum: [mild, moderate, severe, very_severe, null] }
             wrinkle_area_ratio: { type: [number, "null"] }
             under_eye_present: { type: [boolean, "null"] }
+            triage_action:
+              type: [string, "null"]
+              enum: [proceed, limited, refer_dermatologist, retake, null]
+              description: Findings drive needs only when "proceed"
+            is_mock: { type: boolean, default: false }
       example:
         mode: multimodal
         profile: { skin_type: oily, sensitivity: high, allergies: [PARFUM], budget_max: 40, goals: [acne_care] }
@@ -257,6 +290,12 @@ components:
         missing_information: { type: array, items: { type: string }, example: [allergies] }
         morning: { type: array, items: { $ref: "#/components/schemas/RankedProduct" } }
         evening: { type: array, items: { $ref: "#/components/schemas/RankedProduct" } }
+        morning_routine: { type: array, items: { $ref: "#/components/schemas/RoutineStep" } }
+        evening_routine: { type: array, items: { $ref: "#/components/schemas/RoutineStep" } }
+        skipped_for_compatibility:
+          type: array
+          items: { type: object, properties: { product_id: { type: string }, reason: { type: string } } }
+        pending_rules: { type: array, items: { type: string }, description: Needs whose ingredient rule awaits expert review }
         excluded:
           type: array
           items:
@@ -264,3 +303,48 @@ components:
             properties:
               product_id: { type: string }
               reasons: { type: array, items: { type: string }, example: ["contains_blocked_ingredient:parfum"] }
+    RoutineStep:
+      type: object
+      properties:
+        step: { type: integer }
+        category: { type: string }
+        product_id: { type: string }
+        usage_instructions: { type: [string, "null"] }
+    ExplanationRequest:
+      type: object
+      required: [recommendation]
+      properties:
+        recommendation: { $ref: "#/components/schemas/RecommendationResponse" }
+        language: { type: string, enum: [tr, en], default: tr }
+    Citation:
+      type: object
+      properties:
+        source_id: { type: string, example: S1 }
+        doc_id: { type: string }
+        title: { type: string }
+        publisher: { type: string }
+        source_url: { type: string }
+        accessed_at: { type: string, format: date }
+        chunk_id: { type: string }
+        score: { type: number }
+    Explanation:
+      type: object
+      properties:
+        mode: { type: string, enum: [llm_grounded, rule_template] }
+        text: { type: string }
+        citations: { type: array, items: { $ref: "#/components/schemas/Citation" } }
+        provider: { type: string }
+        model: { type: string }
+        rules_version: { type: string }
+        fallback_reason: { type: [string, "null"], enum: [no_validated_products, no_verified_sources, llm_disabled, llm_unavailable, guard_rejected, null] }
+        metrics:
+          type: object
+          properties:
+            latency_ms: { type: [number, "null"] }
+            input_tokens: { type: [integer, "null"] }
+            output_tokens: { type: [integer, "null"] }
+            est_cost_usd: { type: [number, "null"] }
+            grounded_ratio: { type: [number, "null"] }
+            safe: { type: [boolean, "null"] }
+            retrieved_chunks: { type: integer }
+        disclaimer: { type: string }

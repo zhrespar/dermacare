@@ -66,11 +66,19 @@ industry advisor use exported scenario outputs, not the app.
 Candidate architectures named in the proposal's references: Faster R-CNN, YOLOv8 (detection); U-Net, SwinUNETR (2D adaptation)
 (segmentation); ResNet, MobileNetV2 (classification); Grad-CAM (explanation). No model is assumed best in advance.
 
+Only these three CV components are trained/fine-tuned by the project, using pretrained backbones and transfer learning
+(configs in `ml/training/configs.py`). No LLM, recommendation model or embedding model is trained.
+
+Explainable visual outputs: lesion boxes with confidence and facial region, wrinkle mask overlay, under-eye Grad-CAM,
+per-region lesion counts.
+
 ### 6.2 Preprocessing
 
 - MediaPipe face landmarks → OpenCV ROI extraction (face skin area for acne/wrinkles; periocular/under-eye for bags).
 - Resize/normalise per model; regional masks; augmentation on training split only, never altering visible skin features.
-- Quality thresholds fixed on the validation split before final testing.
+- Facial region mapping (forehead, cheeks, nose, chin, under-eyes) from pretrained landmarks.
+- Quality decision: no face / multiple faces → out of scope; blur, exposure, face size, ROI visibility → retake.
+- Quality and confidence thresholds fixed on the validation split before final testing (current values provisional).
 
 ### 6.3 Safety / triage layer (not a disease classifier)
 
@@ -78,13 +86,18 @@ Stops or limits the normal recommendation flow when: quality thresholds fail; re
 be reliably explained by the three targets; model confidence below a validation-fixed threshold. In those cases: no
 disease name, suggest dermatologist evaluation. Also triggered by missing critical profile information.
 
+Actions: `retake` (image problem), `limited` (low confidence → CV findings are withheld from the recommendation, which
+falls back to the declared profile), `refer_dermatologist` (out-of-scope finding), `proceed`.
+
 ### 6.4 Product / ingredient catalog
 
 - ≥ 100 cosmetic products, verifiable, structured, PostgreSQL, versioned and **frozen before A/B/C evaluation**.
 - Candidates from Open Beauty Facts (ODbL); INCI verified against manufacturer page / technical doc / packaging;
   manufacturer wins on conflicts (logged); INCI names normalised via EU CosIng (COSMILE Europe optional).
-- Per product: id, barcode (if any), brand, name, category, full INCI, key ingredients, intended use, warnings, price/range,
-  currency, source URL, source type, access date, verification date, verification status.
+- Per product: id, barcode (if any), brand, manufacturer, name, category, full INCI, key ingredients, intended use,
+  manufacturer usage instructions, warnings, price, currency, price-check date, availability, discovery URL (Open Beauty
+  Facts — discovery only), authoritative source URL + type, access date, verification date, verification status.
+- 100 verified products is the research **target**; the current catalog is empty and no real product records are committed.
 - Incomplete / unverifiable / conflicting products are excluded from the pool.
 - No copying of unlicensed product images.
 
@@ -92,18 +105,35 @@ disease name, suggest dermatologist evaluation. Also triggered by missing critic
 
 1. Derive care needs from findings + goals.
 2. Map needs → ingredient / product categories (versioned rule table, expert-informed).
-3. **Hard filters** before scoring: allergy/avoid INCI, sensitivity vs warnings, manufacturer warnings, category constraints, budget.
+3. **Hard filters** before scoring: unverified/unavailable products, allergy / avoid / past-adverse-reaction INCI,
+   sensitivity vs manufacturer warnings, category constraints, budget.
 4. **Score (100):** need + ingredient match **50**, goal/profile fit **25**, routine/category fit **15**, preference **10**
    (provisional; justified with expert input and frozen before scenarios run).
-5. Explain: finding, user need, applied constraints, ingredient/product attribute, score components.
+5. Build AM/PM routines: fixed step order, manufacturer routine slot, sunscreen morning-only, one product per category,
+   source-cited incompatibility pairs.
+6. Explain: finding, user need, applied constraints, ingredient/product attribute, score components.
+
+No recommendation model is trained for the MVP. Rule tables (`backend/app/services/recommendation/rules.py`) are empty
+placeholders until expert-reviewed, source-cited rules are added and a new `rules_version` is frozen.
 
 Same input + same catalog version ⇒ same output.
 
-### 6.6 Explanations (RAG / LLM — project stack addition)
+### 6.6 Explanations (RAG + ready-made LLM APIs — project stack addition)
 
-The proposal does not specify an LLM. The project stack adds an **optional** RAG/LLM layer that only rephrases
-already-computed rule-based reasons using retrieved, verified documents. It never selects products, diagnoses, or adds
-claims. Provider is configurable and **disabled by default**.
+The proposal does not specify an LLM. The stack adds:
+
+- **RAG** over a vetted knowledge base (scientific, dermatology-guideline, ingredient-database, manufacturer and
+  regulatory sources): configurable pretrained embedding model, sentence-aware chunking, source metadata, PostgreSQL +
+  pgvector retrieval with topic filters, `[S-n]` citations that always map to stored sources. Only `verified` sources are
+  ingested. RAG supplies evidence; it never replaces SQL product filtering.
+- **Ready-made LLMs via API** (Anthropic, OpenAI, Google Gemini) behind one provider-independent interface. The LLM
+  explains only already-validated recommendations using retrieved sources; it cannot override hard filters, add products,
+  diagnose, or suggest treatment. A guard rejects outputs with invalid citations, unknown products, medical wording or low
+  groundedness, and the rule-based template is shown instead.
+- Disabled by default. No API keys or model ids are assumed; paid access must be enabled explicitly.
+- Every call records latency, token usage, cost estimate (from configured prices), groundedness ratio and safety flag
+  (`llm_call_logs`, no prompt text) for later provider comparison. Conversational assistance reuses the same interface
+  and guard (post-MVP).
 
 ## 7. Evaluation requirements (from proposal)
 
@@ -128,5 +158,7 @@ prototype; comparative A/B/C evaluation results.
 ## 10. Open items
 
 - Copy WP1–WP7 schedule, risk table and facilities table from the original proposal (not extractable).
-- Expert-reviewed need→ingredient rule table.
+- Expert-reviewed need→ingredient rule table and compatibility pairs (with sources).
+- Curate and verify the RAG knowledge base (licence allows storing excerpts).
+- Decide which LLM providers/models are available to the project (API access, budget).
 - Ethics: if any real participant images are collected, ethics approval/exemption and consent procedures first.
