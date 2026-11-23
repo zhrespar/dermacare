@@ -65,7 +65,7 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } } }
     put:
-      x-status: planned
+      x-status: implemented
       security: [{ bearer: [] }]
       requestBody:
         required: true
