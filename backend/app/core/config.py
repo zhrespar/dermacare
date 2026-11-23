@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,10 +19,27 @@ class Settings(BaseSettings):
     analysis_backend: str = Field(default="mock", pattern="^(mock|torch)$")
     max_upload_mb: int = 8
 
-    # LLM explanations (RAG). Disabled by default — no paid calls unless explicitly configured.
-    llm_provider: str = Field(default="disabled", pattern="^(disabled|anthropic|openai|local)$")
+    # LLM explanations. Disabled by default: no external calls unless explicitly configured.
+    # No model id is assumed — LLM_MODEL must be set to a model your account has access to.
+    llm_provider: str = Field(default="disabled", pattern="^(disabled|anthropic|openai|gemini)$")
     llm_model: str | None = None
-    llm_api_key: str | None = None
+    llm_timeout_s: float = 30.0
+    llm_max_output_tokens: int = 600
+    llm_temperature: float = 0.2
+    anthropic_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
+    # Prices change; enter the current list price per million tokens to get cost estimates.
+    llm_price_input_per_mtok: float | None = None
+    llm_price_output_per_mtok: float | None = None
+
+    # RAG
+    rag_store: str = Field(default="memory", pattern="^(memory|pgvector)$")
+    rag_embedding_backend: str = Field(default="hashing", pattern="^(hashing|sentence_transformers)$")
+    rag_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    rag_embedding_dim: int = 384  # must match knowledge_chunks.embedding column
+    rag_top_k: int = 5
+    rag_min_score: float = 0.2
 
     jwt_secret: str = "change-me-in-env"
     jwt_expire_minutes: int = 60

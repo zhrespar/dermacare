@@ -63,3 +63,53 @@ def test_image_only_does_not_use_profile_constraints():
 def test_profile_only_ignores_findings():
     res = recommend(_req("profile_only"), CATALOG)
     assert "acne_care" not in res.needs
+
+
+def test_past_reactions_and_unavailable_are_hard_filtered():
+    cat = [
+        _p("FIXTURE-REACT", inci=["AQUA", "FIXTURE-X"]),
+        _p("FIXTURE-GONE", available=False),
+        _p("FIXTURE-A"),
+    ]
+    req = _req()
+    req.profile.past_reaction_ingredients = ["fixture-x"]
+    ex = {e.product_id: e.reasons for e in recommend(req, cat).excluded}
+    assert ex["FIXTURE-REACT"][0].startswith("contains_blocked_ingredient")
+    assert ex["FIXTURE-GONE"] == ["not_available"]
+
+
+def test_low_confidence_findings_are_withheld():
+    req = _req()
+    req.findings.triage_action = "limited"
+    res = recommend(req, CATALOG)
+    assert "acne_care" not in res.needs
+    assert "image_findings_withheld:limited" in res.missing_information
+
+
+def test_routines_ordered_and_sunscreen_morning_only():
+    cat = CATALOG + [
+        _p("FIXTURE-CLEANSER", category="cleanser", routine_slot="both"),
+        _p("FIXTURE-SPF-PM", category="sunscreen", routine_slot="both", targets=["sun_protection"]),
+    ]
+    res = recommend(_req(), cat)
+    am = [s.category for s in res.morning_routine]
+    pm = [s.category for s in res.evening_routine]
+    assert am[0] == "cleanser" and am[-1] == "sunscreen"
+    assert "sunscreen" not in pm and pm == ["cleanser", "serum"]
+    assert [s.step for s in res.morning_routine] == list(range(1, len(am) + 1))
+    assert set(res.pending_rules) == set(res.needs)  # no expert ingredient rules yet
+
+
+def test_incompatible_pair_is_skipped():
+    from app.services.recommendation import build_routine
+
+    cat = [
+        _p("FIXTURE-P1", category="serum", inci=["FIXTURE-ACTIVE-1"]),
+        _p("FIXTURE-P2", category="moisturizer", inci=["FIXTURE-ACTIVE-2"], targets=["acne_care"]),
+    ]
+    res = recommend(_req(), cat)
+    ranked = res.evening
+    steps, skipped = build_routine(
+        "pm", ranked, {p.id: p for p in cat}, pairs=[("FIXTURE-ACTIVE-1", "FIXTURE-ACTIVE-2")]
+    )
+    assert len(steps) == 1 and skipped[0].reason.startswith("incompatible_with")

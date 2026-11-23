@@ -10,12 +10,16 @@ from app.models.entities import (
     SkinProfile,
     User,
 )
+from app.models.knowledge import KnowledgeChunk, KnowledgeDocument, LLMCallLog
 
 __all__ = [
     "Analysis",
     "CatalogVersion",
     "FaceImage",
     "Ingredient",
+    "KnowledgeChunk",
+    "KnowledgeDocument",
+    "LLMCallLog",
     "Product",
     "ProductIngredient",
     "Recommendation",

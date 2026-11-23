@@ -3,12 +3,13 @@
 Pipeline (TÜBİTAK 2209-B proposal):
  1. derive care needs from findings + goals
  2. map needs -> ingredient/category rules
- 3. hard filters: unverified, allergy/avoid INCI, sensitivity warnings, budget
+ 3. hard filters: unverified, unavailable, allergy/avoid/past-reaction INCI, sensitivity warnings, budget
  4. score survivors: need+ingredient 50, profile/goal 25, routine/category 15, preference 10
  5. explain every score component
+ 6. build ordered AM/PM routines (routine.py)
 
-Weights and the NEED_INGREDIENTS table are PROVISIONAL: they must be reviewed with the
-industry advisor / expert input and frozen before the A/B/C evaluation.
+Rule tables and weights live in rules.py (PROVISIONAL). The LLM never runs here: it only
+explains this engine's validated output afterwards (services/llm/explain.py).
 """
 
 from __future__ import annotations
@@ -23,26 +24,17 @@ from app.schemas.recommendation import (
     RecommendationResponse,
     ScoreBreakdown,
 )
-
-RULES_VERSION = "0.1.0-provisional"
-W_NEED, W_PROFILE, W_ROUTINE, W_PREF = 50.0, 25.0, 15.0, 10.0
-
-# Placeholder mapping — to be replaced by an expert-reviewed, versioned rule table.
-NEED_INGREDIENTS: dict[str, set[str]] = {
-    "acne_care": set(),
-    "wrinkle_care": set(),
-    "under_eye_care": set(),
-    "hydration": set(),
-    "sun_protection": set(),
-}
-NEED_CATEGORIES: dict[str, set[str]] = {
-    "acne_care": {"cleanser", "serum", "treatment"},
-    "wrinkle_care": {"serum", "moisturizer"},
-    "under_eye_care": {"eye"},
-    "hydration": {"moisturizer"},
-    "sun_protection": {"sunscreen"},
-}
-SENSITIVE_WARNING_TAGS = {"not_for_sensitive_skin", "may_irritate"}
+from app.services.recommendation.routine import build_routine
+from app.services.recommendation.rules import (
+    NEED_CATEGORIES,
+    NEED_INGREDIENTS,
+    RULES_VERSION,
+    SENSITIVE_WARNING_TAGS,
+    W_NEED,
+    W_PREF,
+    W_PROFILE,
+    W_ROUTINE,
+)
 
 
 def _norm(s: str) -> str:
@@ -52,6 +44,8 @@ def _norm(s: str) -> str:
 def derive_needs(req: RecommendationRequest) -> list[str]:
     needs: list[str] = []
     f: FindingsIn | None = req.findings if req.mode != "profile_only" else None
+    if f and f.triage_action not in (None, "proceed"):
+        f = None  # abstention: low-confidence / out-of-scope findings never drive needs
     p: ProfileIn | None = req.profile if req.mode != "image_only" else None
     if f:
         if f.acne_severity is not None:
@@ -75,9 +69,16 @@ def recommend(req: RecommendationRequest, catalog: list[ProductIn]) -> Recommend
         missing.append("allergies")
     if profile is None or profile.sensitivity is None:
         missing.append("sensitivity")
+    if req.findings and req.mode != "profile_only" and req.findings.triage_action not in (None, "proceed"):
+        missing.append(f"image_findings_withheld:{req.findings.triage_action}")
 
     blocked = (
-        {_norm(x) for x in ((profile.allergies or []) + profile.avoid_ingredients)} if profile else set()
+        {
+            _norm(x)
+            for x in (profile.allergies or []) + profile.avoid_ingredients + profile.past_reaction_ingredients
+        }
+        if profile
+        else set()
     )
     ranked: list[RankedProduct] = []
     excluded: list[ExcludedProduct] = []
@@ -86,6 +87,8 @@ def recommend(req: RecommendationRequest, catalog: list[ProductIn]) -> Recommend
         reasons: list[str] = []
         if prod.verification_status != "verified":
             reasons.append("product_not_verified")
+        if prod.available is False:
+            reasons.append("not_available")
         hits = blocked & {_norm(i) for i in prod.inci}
         if hits:
             reasons.append(f"contains_blocked_ingredient:{','.join(sorted(hits))}")
@@ -99,10 +102,18 @@ def recommend(req: RecommendationRequest, catalog: list[ProductIn]) -> Recommend
             continue
 
         why: list[str] = []
-        matched = [n for n in needs if n in prod.targets]
+        key = {i.strip().upper() for i in (prod.key_ingredients or prod.inci)}
+        matched = []
+        for n in needs:
+            rule = NEED_INGREDIENTS.get(n, set())
+            if n in prod.targets and (not rule or key & rule):
+                matched.append(n)
         need_score = W_NEED * (len(matched) / len(needs)) if needs else 0.0
         if matched:
             why.append(f"addresses: {', '.join(matched)}")
+        hits_ing = sorted(key & set().union(*(NEED_INGREDIENTS.get(n, set()) for n in matched)))
+        if hits_ing:
+            why.append(f"key ingredients: {', '.join(hits_ing)}")
         prof_score = 0.0
         if profile:
             if profile.skin_type and profile.skin_type in prod.suitable_skin_types:
@@ -140,6 +151,9 @@ def recommend(req: RecommendationRequest, catalog: list[ProductIn]) -> Recommend
         )
 
     ranked.sort(key=lambda r: (-r.total_score, r.product_id))  # deterministic
+    by_id = {p.id: p for p in catalog}
+    am_steps, am_skip = build_routine("am", ranked, by_id)
+    pm_steps, pm_skip = build_routine("pm", ranked, by_id)
     return RecommendationResponse(
         rules_version=RULES_VERSION,
         mode=req.mode,
@@ -147,5 +161,9 @@ def recommend(req: RecommendationRequest, catalog: list[ProductIn]) -> Recommend
         missing_information=missing,
         morning=[r for r in ranked if r.routine_slot in ("am", "both")],
         evening=[r for r in ranked if r.routine_slot in ("pm", "both")],
+        morning_routine=am_steps,
+        evening_routine=pm_steps,
+        skipped_for_compatibility=am_skip + pm_skip,
         excluded=excluded,
+        pending_rules=[n for n in needs if not NEED_INGREDIENTS.get(n)],
     )

@@ -1,1 +1,1 @@
-barcode,brand,name,category,routine_slot,intended_use,inci_full,key_ingredients,warnings,price,currency,source_url,source_type,accessed_at,verified_at,verification_status,verifier_notes
+barcode,brand,manufacturer,name,category,routine_slot,intended_use,usage_instructions,inci_full,key_ingredients,targets,suitable_skin_types,warnings,price,currency,price_checked_at,available,availability_note,discovery_url,source_url,source_type,accessed_at,verified_at,verification_status,verifier_notes

@@ -31,6 +31,9 @@ Before any download/upload: confirm licence terms and record them in Drive `02_D
 | Wrinkle segmentation | U-Net, SwinUNETR (2D adaptation) | Dice (on 1,000 manual masks) | IoU, precision, recall, compute cost |
 | Under-eye (binary) | ResNet, MobileNetV2 | F1 (positive class) / balanced accuracy | ROC-AUC, PR-AUC, FP/FN analysis, Grad-CAM ROI consistency |
 
+All candidates start from public pretrained weights (transfer learning); starting hyperparameters are in
+`ml/training/configs.py`. Metric implementations: `ml/evaluation/metrics.py` (unit-tested on toy arrays only).
+
 Accuracy alone is never reported as the headline metric. Model size, inference latency and memory are recorded for integration.
 
 ## 4. Protocol
@@ -42,6 +45,19 @@ Accuracy alone is never reported as the headline metric. Model size, inference l
 5. Results are dataset-based; they are **not** claims about real mobile-photo performance (no external real-user validation in scope).
 6. Safety thresholds (quality, confidence) fixed on validation before testing; never changed after seeing test results.
 7. Grad-CAM: measure overlap of activation with the under-eye ROI (qualitative + simple overlap ratio).
+
+## 4b. Non-trained AI components (measured, not trained)
+
+| Component | Kind | What we record |
+|---|---|---|
+| Face landmarks | pretrained | region visibility failures on the validation split |
+| Quality check / triage | rules | retake / limited / refer rates; thresholds + version |
+| RAG embeddings | pretrained (`RAG_EMBEDDING_MODEL`) | model id, dim, retrieval hit rate on a labelled query set |
+| LLM explanations | external API | per provider+model: latency, tokens, cost estimate, groundedness ratio, guard pass rate, safety flags |
+
+Provider comparison uses `app.services.llm.compare_providers` over the same scenarios, same retrieved sources and same
+prompt. Only configured providers are run; no rows are reported for providers without API access. Cost figures depend on
+the prices entered in configuration at run time and are estimates.
 
 ## 5. Recommendation study (A/B/C)
 

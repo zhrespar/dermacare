@@ -33,7 +33,7 @@ class MockAcneDetector:
         return AcneResult(
             lesions=boxes,
             severity=AcneSeverity(min(n, 3)),
-            severity_probabilities=[0.25, 0.25, 0.25, 0.25],
+            severity_probabilities=[0.7 if i == min(n, 3) else 0.1 for i in range(4)],
             model_version=MOCK_VERSION,
         )
 
@@ -50,9 +50,10 @@ class MockWrinkleSegmenter:
 
 class MockUnderEyeClassifier:
     def predict(self, image: ImageInput) -> UnderEyeResult:
+        present = _seed(image) % 2 == 1
         return UnderEyeResult(
-            present=_seed(image) % 2 == 1,
-            probability=0.5,
+            present=present,
+            probability=0.8 if present else 0.2,
             gradcam_uri=None,
             model_version=MOCK_VERSION,
         )

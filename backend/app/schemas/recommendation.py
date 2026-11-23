@@ -10,6 +10,9 @@ class ProfileIn(BaseModel):
     sensitivity: Literal["none", "mild", "high"] | None = None
     allergies: list[str] | None = Field(default=None, description="INCI names; null = not answered")
     avoid_ingredients: list[str] = []
+    past_reaction_ingredients: list[str] = Field(
+        default=[], description="INCI names linked to the user's past adverse reactions; hard-excluded"
+    )
     goals: list[Need] = []
     budget_max: float | None = Field(default=None, ge=0)
     preferred_categories: list[str] = []
@@ -19,11 +22,16 @@ class FindingsIn(BaseModel):
     acne_severity: Literal["mild", "moderate", "severe", "very_severe"] | None = None
     wrinkle_area_ratio: float | None = Field(default=None, ge=0, le=1)
     under_eye_present: bool | None = None
+    triage_action: Literal["proceed", "limited", "refer_dermatologist", "retake"] | None = Field(
+        default=None, description="From the analysis; findings are used only when 'proceed'"
+    )
+    is_mock: bool = False
 
 
 class ProductIn(BaseModel):
     id: str
     brand: str
+    manufacturer: str | None = None
     name: str
     category: str
     routine_slot: Literal["am", "pm", "both"]
@@ -33,6 +41,10 @@ class ProductIn(BaseModel):
     warnings: list[str] = []
     suitable_skin_types: list[str] = []
     price: float | None = None
+    currency: str | None = None
+    available: bool | None = None
+    usage_instructions: str | None = None
+    source_url: str | None = None
     verification_status: Literal["pending", "verified", "rejected"]
 
 
@@ -64,6 +76,18 @@ class ExcludedProduct(BaseModel):
     reasons: list[str]
 
 
+class RoutineStep(BaseModel):
+    step: int
+    category: str
+    product_id: str
+    usage_instructions: str | None = None
+
+
+class SkippedStep(BaseModel):
+    product_id: str
+    reason: str
+
+
 class RecommendationResponse(BaseModel):
     rules_version: str
     mode: str
@@ -71,4 +95,10 @@ class RecommendationResponse(BaseModel):
     missing_information: list[str]
     morning: list[RankedProduct]
     evening: list[RankedProduct]
+    morning_routine: list[RoutineStep] = []
+    evening_routine: list[RoutineStep] = []
+    skipped_for_compatibility: list[SkippedStep] = []
     excluded: list[ExcludedProduct]
+    pending_rules: list[str] = Field(
+        default=[], description="Needs whose ingredient rule awaits expert review"
+    )

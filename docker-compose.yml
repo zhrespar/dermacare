@@ -1,7 +1,7 @@
 # Local development stack: PostgreSQL + FastAPI (mock analysis backend).
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dermacare}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dermacare}
