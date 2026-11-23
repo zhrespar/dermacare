@@ -1,0 +1,42 @@
+# Local development stack: PostgreSQL + FastAPI (mock analysis backend).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dermacare}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dermacare}
+      POSTGRES_DB: ${POSTGRES_DB:-dermacare}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-dermacare}:${POSTGRES_PASSWORD:-dermacare}@db:5432/${POSTGRES_DB:-dermacare}
+      ANALYSIS_BACKEND: ${ANALYSIS_BACKEND:-mock}
+      LLM_PROVIDER: ${LLM_PROVIDER:-disabled}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend/app:/app/backend/app
+      - ./ml:/app/ml
+
+volumes:
+  pgdata:
