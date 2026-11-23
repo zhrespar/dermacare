@@ -8,7 +8,7 @@ class MockBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       key: const Key('mock-banner'),
-      color: Theme.of(context).colorScheme.tertiaryContainer,
+      color: const Color(0xFFFFE3C9), // pastel peach
       child: const Padding(
         padding: EdgeInsets.all(12),
         child: Text('DENEME VERİSİ — Yer tutucu modeller kullanılıyor; bu gerçek bir analiz değildir.'),

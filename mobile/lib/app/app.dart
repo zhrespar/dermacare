@@ -26,8 +26,8 @@ class _DermaCareAppState extends State<DermaCareApp> {
       state: _state,
       child: MaterialApp.router(
         title: 'DermaCare',
-        theme: buildTheme(Brightness.light),
-        darkTheme: buildTheme(Brightness.dark),
+        theme: buildTheme(),
+        themeMode: ThemeMode.light, // pastel light palette only
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
       ),
