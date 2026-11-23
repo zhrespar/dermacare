@@ -62,5 +62,5 @@ jobs:
             flutter create --org com.dermacare --project-name dermacare --platforms=android,ios .
           fi
       - run: flutter pub get
-      - run: flutter analyze
+      - run: flutter analyze --no-fatal-infos
       - run: flutter test

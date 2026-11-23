@@ -20,17 +20,21 @@ class WelcomeScreen extends StatelessWidget {
               const Spacer(),
               Text('DermaCare', style: text.displaySmall),
               const SizedBox(height: 12),
-              Text(
-                'Explainable skin analysis and a personalised morning/evening routine.',
-                style: text.titleMedium,
-              ),
+              Text('Açıklanabilir cilt analizi ve size özel sabah/akşam bakım rutini.', style: text.titleMedium),
+              const SizedBox(height: 24),
+              for (final s in const [
+                '1. Cilt profilinizi doldurun',
+                '2. Önden, iyi ışıkta bir yüz fotoğrafı çekin',
+                '3. Bulguları ve nedenleriyle birlikte rutininizi görün',
+              ])
+                Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(s)),
               const SizedBox(height: 16),
               Text(disclaimer, style: text.bodySmall),
               const Spacer(),
               FilledButton(
                 key: const Key('get-started'),
                 onPressed: () => context.push(Routes.auth),
-                child: const Text('Get started'),
+                child: const Text('Başla'),
               ),
             ],
           ),

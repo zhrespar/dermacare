@@ -1,21 +1,33 @@
 # DermaCare mobile (Flutter)
 
-Android + iOS client. Screens follow the journey:
-Welcome → Auth → Skin Profile → Frontal Photo → Quality Check → Analysis → Results → Routine → Products → History.
+Android + iOS client (Turkish UI). Journey:
+Welcome → Auth (register with privacy consent / login) → Skin Profile → Frontal Photo (camera or gallery) →
+Quality Check + Analysis → Results (triage, lesion boxes, regions) → Routine (AM/PM + cited explanation) →
+Product details (score breakdown, exclusions) → History (+ delete account).
 
-## First-time setup
+| Path | Contents |
+|---|---|
+| `lib/core/api_client.dart` | Typed client for every backend endpoint (bearer token) |
+| `lib/core/models.dart` | Dart mirrors of the API schemas (`docs/API_SPEC.yaml`) |
+| `lib/core/labels.dart` | Turkish labels for API codes |
+| `lib/app/state.dart` | Session state (token, profile, photo in memory, analysis, recommendation) |
+| `lib/app/router.dart` | Routes; signed-out users are redirected to Auth |
+| `lib/features/*` | One folder per screen |
 
-The Dart/Flutter sources are committed; native platform folders are generated once by the Flutter tool
-(they were not generated in the initial commit because the Flutter SDK was not available in that environment):
+Rules the UI enforces: mock results always show the "DENEME VERİSİ" banner; `refer_dermatologist` stops the cosmetic
+flow; `limited` explains that the routine uses the profile only; unanswered profile questions stay unknown; the photo is
+kept in memory only.
+
+## Run
 
 ```bash
 cd mobile
-flutter create --org com.dermacare --project-name dermacare --platforms=android,ios .
 flutter pub get
-flutter analyze
-flutter test
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000   # Android emulator
+flutter analyze && flutter test
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000        # quick preview in a browser
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000                   # Android emulator
+flutter run --dart-define=API_BASE_URL=http://localhost:8000                  # iOS simulator
 ```
 
-Commit the generated `android/` and `ios/` folders after review. Camera permissions
-(`NSCameraUsageDescription`, Android `CAMERA`) are added when the capture screen is implemented.
+iOS needs Xcode; Android needs Android Studio (SDK + emulator). Camera/photo permission texts are in
+`ios/Runner/Info.plist`.
