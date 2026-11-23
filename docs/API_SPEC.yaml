@@ -1,0 +1,266 @@
+openapi: 3.1.0
+info:
+  title: DermaCare API
+  version: 0.1.0
+  description: |
+    Contract for the DermaCare mobile client. Endpoints marked `x-status: implemented` exist in
+    `backend/app`; `planned` endpoints are contracts for upcoming sprints.
+    The live, generated schema is served at `/openapi.json` and `/docs`.
+    Not a medical device: no diagnosis or treatment output.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      x-status: implemented
+      summary: Liveness + dependency status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+              example: { status: ok, version: 0.1.0, environment: development, database: ok, analysis_backend: mock }
+
+  /api/v1/auth/register:
+    post:
+      x-status: planned
+      summary: Create account (requires privacy consent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, consent_version]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10 }
+                consent_version: { type: string, example: "2026-11" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Token" } } } }
+        "409": { description: Email already registered }
+
+  /api/v1/auth/login:
+    post:
+      x-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Token" } } } }
+        "401": { description: Invalid credentials }
+
+  /api/v1/profile:
+    get:
+      x-status: planned
+      security: [{ bearer: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } } }
+    put:
+      x-status: planned
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } }
+      responses:
+        "200": { description: Saved }
+
+  /api/v1/analyses:
+    post:
+      x-status: implemented (mock backend, no auth yet)
+      summary: Upload a frontal face photo and run quality check + 3 analyses
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image: { type: string, format: binary, description: "JPEG or PNG, <= MAX_UPLOAD_MB" }
+      responses:
+        "200":
+          description: Analysis (check `is_mock` and `triage.action`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Analysis" }
+        "413": { description: image_too_large }
+        "503": { description: model_backend_not_available }
+    get:
+      x-status: planned
+      summary: History of the user's analyses
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Analysis" } } } }
+
+  /api/v1/recommendations/preview:
+    post:
+      x-status: implemented (empty catalog until a verified version is frozen)
+      summary: Run the rule-based engine on explicit findings + profile
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RecommendationRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RecommendationResponse" } } } }
+        "422": { description: Validation error }
+
+  /api/v1/recommendations:
+    post:
+      x-status: planned
+      summary: Recommend from a stored analysis + stored profile
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [analysis_id]
+              properties:
+                analysis_id: { type: string, format: uuid }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RecommendationResponse" } } } }
+
+  /api/v1/me:
+    delete:
+      x-status: planned
+      summary: Delete account and all personal data (images, analyses, profile)
+      security: [{ bearer: [] }]
+      responses:
+        "204": { description: Deleted }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Health:
+      type: object
+      required: [status, version, environment, database, analysis_backend]
+      properties:
+        status: { type: string }
+        version: { type: string }
+        environment: { type: string }
+        database: { type: string, enum: [ok, unavailable] }
+        analysis_backend: { type: string, enum: [mock, torch] }
+    Token:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+    Profile:
+      type: object
+      description: Null means "not answered"; never interpreted as "no".
+      properties:
+        skin_type: { type: [string, "null"], enum: [dry, oily, combination, normal, null] }
+        sensitivity: { type: [string, "null"], enum: [none, mild, high, null] }
+        allergies: { type: [array, "null"], items: { type: string }, description: INCI names }
+        avoid_ingredients: { type: array, items: { type: string } }
+        goals: { type: array, items: { $ref: "#/components/schemas/Need" } }
+        budget_max: { type: [number, "null"], minimum: 0 }
+        preferred_categories: { type: array, items: { type: string } }
+    Need:
+      type: string
+      enum: [acne_care, wrinkle_care, under_eye_care, hydration, sun_protection]
+    Box:
+      type: object
+      description: Normalised [0,1] coordinates
+      properties:
+        x_min: { type: number }
+        y_min: { type: number }
+        x_max: { type: number }
+        y_max: { type: number }
+        confidence: { type: number }
+    Analysis:
+      type: object
+      required: [id, is_mock, quality, triage, model_versions, disclaimer]
+      properties:
+        id: { type: string }
+        is_mock: { type: boolean }
+        quality:
+          type: object
+          properties:
+            status: { type: string, enum: [accepted, retake, out_of_scope] }
+            reasons: { type: array, items: { type: string } }
+        triage:
+          type: object
+          properties:
+            action: { type: string, enum: [proceed, limited, refer_dermatologist, retake] }
+            reasons: { type: array, items: { type: string } }
+        acne:
+          type: [object, "null"]
+          properties:
+            lesion_count: { type: integer }
+            lesions: { type: array, items: { $ref: "#/components/schemas/Box" } }
+            severity: { type: string, enum: [mild, moderate, severe, very_severe] }
+            severity_probabilities: { type: array, items: { type: number }, minItems: 4, maxItems: 4 }
+        wrinkles:
+          type: [object, "null"]
+          properties:
+            affected_area_ratio: { type: number }
+            mean_confidence: { type: number }
+            mask_url: { type: [string, "null"] }
+        under_eye:
+          type: [object, "null"]
+          properties:
+            present: { type: boolean }
+            probability: { type: number }
+            gradcam_url: { type: [string, "null"] }
+        model_versions: { type: object, additionalProperties: { type: string } }
+        disclaimer: { type: string }
+    RecommendationRequest:
+      type: object
+      properties:
+        mode: { type: string, enum: [profile_only, image_only, multimodal], default: multimodal }
+        profile: { $ref: "#/components/schemas/Profile" }
+        findings:
+          type: object
+          properties:
+            acne_severity: { type: [string, "null"], enum: [mild, moderate, severe, very_severe, null] }
+            wrinkle_area_ratio: { type: [number, "null"] }
+            under_eye_present: { type: [boolean, "null"] }
+      example:
+        mode: multimodal
+        profile: { skin_type: oily, sensitivity: high, allergies: [PARFUM], budget_max: 40, goals: [acne_care] }
+        findings: { acne_severity: moderate, wrinkle_area_ratio: 0.0, under_eye_present: false }
+    RankedProduct:
+      type: object
+      properties:
+        product_id: { type: string }
+        brand: { type: string }
+        name: { type: string }
+        routine_slot: { type: string, enum: [am, pm, both] }
+        total_score: { type: number, maximum: 100 }
+        breakdown:
+          type: object
+          properties:
+            need_ingredient: { type: number, maximum: 50 }
+            profile_goal: { type: number, maximum: 25 }
+            routine_category: { type: number, maximum: 15 }
+            preference: { type: number, maximum: 10 }
+        reasons: { type: array, items: { type: string } }
+    RecommendationResponse:
+      type: object
+      properties:
+        rules_version: { type: string }
+        mode: { type: string }
+        needs: { type: array, items: { $ref: "#/components/schemas/Need" } }
+        missing_information: { type: array, items: { type: string }, example: [allergies] }
+        morning: { type: array, items: { $ref: "#/components/schemas/RankedProduct" } }
+        evening: { type: array, items: { $ref: "#/components/schemas/RankedProduct" } }
+        excluded:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: string }
+              reasons: { type: array, items: { type: string }, example: ["contains_blocked_ingredient:parfum"] }

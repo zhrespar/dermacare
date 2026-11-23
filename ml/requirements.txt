@@ -1,0 +1,9 @@
+# ML stack (Colab / GPU workstation). Not needed to run the backend with mock models.
+torch>=2.4
+torchvision>=0.19
+opencv-python-headless>=4.10
+mediapipe>=0.10.14
+numpy>=1.26
+scikit-learn>=1.5
+ultralytics>=8.3
+monai>=1.4

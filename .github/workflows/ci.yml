@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dermacare
+          POSTGRES_PASSWORD: dermacare
+          POSTGRES_DB: dermacare
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dermacare" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://dermacare:dermacare@localhost:5432/dermacare
+      PYTHONPATH: ${{ github.workspace }}/backend:${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: pip install -r backend/requirements-dev.txt
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check backend ml tests
+      - name: Migrations (upgrade, drift check, downgrade)
+        working-directory: backend
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+      - name: Tests
+        run: pytest -q
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate platform folders if missing
+        run: |
+          if [ ! -d android ] || [ ! -d ios ]; then
+            flutter create --org com.dermacare --project-name dermacare --platforms=android,ios .
+          fi
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
