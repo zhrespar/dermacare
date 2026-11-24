@@ -129,7 +129,7 @@ class Product(TimestampMixin, Base):
     currency: Mapped[str | None] = mapped_column(String(3))
     price_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     available: Mapped[bool | None] = mapped_column(Boolean)
-    availability_note: Mapped[str | None] = mapped_column(String(255))  # e.g. market/retailer
+    availability_note: Mapped[str | None] = mapped_column(Text)  # e.g. market/retailer
     discovery_url: Mapped[str | None] = mapped_column(String(1024))  # e.g. Open Beauty Facts (discovery only)
     source_url: Mapped[str] = mapped_column(String(1024))
     source_type: Mapped[str] = mapped_column(String(32))  # manufacturer|package (verification source)
